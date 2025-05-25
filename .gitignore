@@ -3,7 +3,7 @@
 venv/
 env/
 
-# ignire secrets
+# ignore secrets
 pas.txt
 
 # ignore BD
