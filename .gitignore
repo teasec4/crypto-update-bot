@@ -1,0 +1,10 @@
+# ignore venv
+.venv/
+venv/
+env/
+
+# ignire secrets
+pas.txt
+
+# ignore BD
+subscribers.json
