@@ -1,8 +1,8 @@
-Crypto Update Telegram Bot
+# Crypto Update Telegram Bot
 
 A Telegram bot that provides real-time cryptocurrency prices, daily reminders, and market updates using the CoinGecko API.
 
-Features
+# Features
 	•	Get current prices, 24h price changes, and market caps for multiple cryptocurrencies.
 	•	Subscribe/unsubscribe to daily morning price reminders.
 	•	Interactive inline buttons for top cryptocurrencies.
@@ -26,10 +26,10 @@ Features
         export BOT_TOKEN="your_bot_token_here"  # Linux/macOS
         set BOT_TOKEN=your_bot_token_here       # Windows
 
-Usage
+## Usage
     python bot.py
 
-Commands
+## Commands
 /start  Show top coin buttons and welcome message
 /price <ids> Get price info for one or more coin IDs
 /subscribe Subscribe to daily 8:00 AM crypto updates
