@@ -191,7 +191,7 @@ class CryptoReminderBot:
         else:
             print("❌ job_queue is None")
 
-        print(f"[DEBUG] JobQueue available: {app.job_queue}")
+        #print(f"[DEBUG] JobQueue available: {app.job_queue}")
 
     def run(self):
         self.app.run_polling()
