@@ -3,12 +3,12 @@
 A Telegram bot that provides real-time cryptocurrency prices, daily reminders, and market updates using the CoinGecko API.
 
 # Features
-	•	Get current prices, 24h price changes, and market caps for multiple cryptocurrencies.
-	•	Subscribe/unsubscribe to daily morning price reminders.
-	•	Interactive inline buttons for top cryptocurrencies.
-	•	Support for multiple coin queries.
-	•	Clean, formatted messages with emojis and links.
-	•	Runs on Python using the python-telegram-bot library.
+	•Get current prices, 24h price changes, and market caps for multiple cryptocurrencies.
+	•Subscribe/unsubscribe to daily morning price reminders.
+	•Interactive inline buttons for top cryptocurrencies.
+	•Support for multiple coin queries.
+	•Clean, formatted messages with emojis and links.
+	•Runs on Python using the python-telegram-bot library.
 
 1.	Clone the repository:
         git clone https://github.com/teasec4/crypto-update-bot.git
@@ -26,26 +26,26 @@ A Telegram bot that provides real-time cryptocurrency prices, daily reminders, a
         export BOT_TOKEN="your_bot_token_here"  # Linux/macOS
         set BOT_TOKEN=your_bot_token_here       # Windows
 
-## Usage
+### Usage
     python bot.py
 
-## Commands
+### Commands
 /start  Show top coin buttons and welcome message
 /price <ids> Get price info for one or more coin IDs
 /subscribe Subscribe to daily 8:00 AM crypto updates
 /unsubscribe Unsubscribe from daily updates
 /help Show the help message
 
-Development
-	•	The bot uses the CoinGecko API for crypto data.
-	•	Written in Python 3.9+.
-	•	Uses the python-telegram-bot library with job queue support.
+### Development
+	•The bot uses the CoinGecko API for crypto data.
+	•Written in Python 3.9+.
+	•Uses the python-telegram-bot library with job queue support.
 
-Contributing
+### Contributing
 Feel free to open issues or pull requests to improve the bot!
 
-License
+### License
 MIT License © 2025 Kovalev
 
-Contact
-	•	GitHub: https://github.com/teasec4
+### Contact
+	•GitHub: https://github.com/teasec4
