@@ -10,19 +10,19 @@ Features
 	•	Clean, formatted messages with emojis and links.
 	•	Runs on Python using the python-telegram-bot library.
 
-	1.	Clone the repository:
+1.	Clone the repository:
         git clone https://github.com/teasec4/crypto-update-bot.git
         cd crypto-update-bot
 
-    2.	Create and activate a Python virtual environment (recommended):
+2.	Create and activate a Python virtual environment (recommended):
         python3 -m venv .venv
         source .venv/bin/activate  # Linux/macOS
         .venv\Scripts\activate     # Windows
 
-    3.	Install dependencies:
+3.	Install dependencies:
         pip install -r requirements.txt
 
-    4.	Set your Telegram Bot Token as an environment variable:
+4.	Set your Telegram Bot Token as an environment variable:
         export BOT_TOKEN="your_bot_token_here"  # Linux/macOS
         set BOT_TOKEN=your_bot_token_here       # Windows
 
