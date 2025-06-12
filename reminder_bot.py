@@ -2,6 +2,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from crypto_utils import get_price, get_top_coins, _add_subscriber, _remove_subscriber, load_subscribers
 from datetime import time as dtime
+from pytz import timezone
 
 
 class CryptoReminderBot:
@@ -152,29 +153,32 @@ class CryptoReminderBot:
                 await query.message.reply_text("❌ You weren't subscribed.")
     
     async def morning_reminder(self, context: ContextTypes.DEFAULT_TYPE):
-        coins = ['bitcoin', 'ethereum', 'dogecoin']
-        messages = []
+        try:
+            coins = ['bitcoin', 'ethereum', 'dogecoin']
+            messages = []
 
-        for coin in coins:
-            data = get_price(coin).get(coin)
-            if not data:
-                continue
-            if data['change_24h'] >= 0:
-                emoji = "🟢" 
-            else:
-                emoji = "🔻"
+            for coin in coins:
+                data = get_price(coin).get(coin)
+                if not data:
+                    continue
+                if data['change_24h'] >= 0:
+                    emoji = "🟢" 
+                else:
+                    emoji = "🔻"
 
-            msg = (
-                f"🔹 <b>{coin.upper()}</b>\n"
-                f"💰 Price: <code>${data['usd']:,.2f}</code>\n"
-                f"{emoji} 24h Change:  <i>{data['change_24h']:.2f}%</i>\n"
-                f"🏦 Market Cap: <code>${data['market_cap']:,.0f}</code>\n\n"
-            )
-            messages.append(msg)
-        
-        full_message = "<b>🌅 Morning Crypto Update</b>\n\n" + "\n".join(messages)
-        for chat_id in load_subscribers():
-                await context.bot.send_message(chat_id=chat_id, text=full_message, parse_mode="HTML")
+                msg = (
+                    f"🔹 <b>{coin.upper()}</b>\n"
+                    f"💰 Price: <code>${data['usd']:,.2f}</code>\n"
+                    f"{emoji} 24h Change:  <i>{data['change_24h']:.2f}%</i>\n"
+                    f"🏦 Market Cap: <code>${data['market_cap']:,.0f}</code>\n\n"
+                )
+                messages.append(msg)
+            
+            full_message = "<b>🌅 Morning Crypto Update</b>\n\n" + "\n".join(messages)
+            for chat_id in load_subscribers():
+                    await context.bot.send_message(chat_id=chat_id, text=full_message, parse_mode="HTML")
+        except Exception as e:
+            print(f"❌ Error in morning reminder: {e}")
 
     async def test_morning(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         fake_context = type("ctx", (), {"bot": context.bot})
@@ -182,11 +186,13 @@ class CryptoReminderBot:
 
     async def setup_jobs(self, app):
         print("✅ Job queue initialized:", app.job_queue is not None)
+        shanghai = timezone("Asia/Shanghai")  # Adjust to your timezone
+        now = dtime(hour=8, minute=0, tzinfo=shanghai) 
+
         if app.job_queue:
             app.job_queue.run_daily(
                 self.morning_reminder,
-                time=dtime(hour=8, minute=0),
-                timezone="Asia/Shanghai",  # Adjust to your timezone   
+                time=now,
                 name="daily_morning_reminder"
             )
         else:
