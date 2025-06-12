@@ -152,7 +152,7 @@ class CryptoReminderBot:
                 await query.message.reply_text("❌ You weren't subscribed.")
     
     async def morning_reminder(self, context: ContextTypes.DEFAULT_TYPE):
-        coins = ['bitcoin', 'ethereum']
+        coins = ['bitcoin', 'ethereum', 'dogecoin']
         messages = []
 
         for coin in coins:
@@ -186,6 +186,7 @@ class CryptoReminderBot:
             app.job_queue.run_daily(
                 self.morning_reminder,
                 time=dtime(hour=8, minute=0),
+                timezone="Asia/Shanghai",  # Adjust to your timezone   
                 name="daily_morning_reminder"
             )
         else:
