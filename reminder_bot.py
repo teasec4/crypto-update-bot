@@ -1,8 +1,20 @@
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from crypto_utils import get_price, get_top_coins, _add_subscriber, _remove_subscriber, load_subscribers
+from crypto_utils import get_price, get_top_coins, _add_subscriber, _remove_subscriber, load_subscribers, save_subscribers
 from datetime import time as dtime
-from pytz import timezone
+import pytz
+import logging
+
+# Configure logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("crypto_reminder_bot.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class CryptoReminderBot:
@@ -25,6 +37,7 @@ class CryptoReminderBot:
         self.app.add_handler(CommandHandler("unsubscribe", self.unsubscribe))
         #self.app.add_handler(CommandHandler("testmorning", self.test_morning))
         self.app.add_handler(CallbackQueryHandler(self.button_handler))
+        self.app.add_handler(CommandHandler("change", self.change_timezone))
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         top_coins = get_top_coins()
@@ -95,6 +108,9 @@ class CryptoReminderBot:
 
     async def subscribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
+        subs = load_subscribers()
+        subs[str(chat_id)] = subs.get(str(chat_id), "Asia/Shanghai") 
+        save_subscribers(subs) 
         if _add_subscriber(chat_id):
             await update.message.reply_text("✅ You've subscribed to daily updates.")
         else:
@@ -151,8 +167,20 @@ class CryptoReminderBot:
                 await query.message.reply_text("🚫 Unsubscribed via button.")
             else:
                 await query.message.reply_text("❌ You weren't subscribed.")
-    
+        elif data.startswith("tz_"):
+            tz = data.replace("tz_", "")
+            chat_id = str(update.effective_chat.id)
+
+            subscribers = load_subscribers()
+            if chat_id in subscribers:
+                subscribers[chat_id] = tz
+                save_subscribers(subscribers)
+                await query.message.reply_text(f"🌍 Timezone changed to {tz.replace('_', ' ')} for daily reminders.")
+            else:
+                await query.message.reply_text("❌ You need to subscribe first to change timezone.")
+
     async def morning_reminder(self, context: ContextTypes.DEFAULT_TYPE):
+        logger.info("Running morning reminder job")
         try:
             coins = ['bitcoin', 'ethereum', 'dogecoin']
             messages = []
@@ -173,6 +201,14 @@ class CryptoReminderBot:
                     f"🏦 Market Cap: <code>${data['market_cap']:,.0f}</code>\n\n"
                 )
                 messages.append(msg)
+                logging.info(f"Morning reminder for {coin}: {msg.strip()}")
+            if len(messages) == len(coins):
+                logging.info("All coins data fetched successfully.")
+            else:
+                logging.warning("Some coins data could not be fetched.")
+            if not messages:
+                logging.warning("No messages to send in morning reminder.")
+                return
             
             full_message = "<b>🌅 Morning Crypto Update</b>\n\n" + "\n".join(messages)
             for chat_id in load_subscribers():
@@ -184,21 +220,38 @@ class CryptoReminderBot:
         fake_context = type("ctx", (), {"bot": context.bot})
         await self.morning_reminder(fake_context)
 
+    async def change_timezone(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        keyboard = [
+            [InlineKeyboardButton("🇨🇳 Asia/Shanghai", callback_data="tz_Asia/Shanghai")],
+            [InlineKeyboardButton("🇯🇵 Asia/Tokyo", callback_data="tz_Asia/Tokyo")],
+            [InlineKeyboardButton("🇷🇺 Europe/Moscow", callback_data="tz_Europe/Moscow")],
+            [InlineKeyboardButton("🇩🇪 Europe/Berlin", callback_data="tz_Europe/Berlin")],
+            [InlineKeyboardButton("🇺🇸 America/New_York", callback_data="tz_America/New_York")],
+        ]
+        await update.message.reply_text(
+            "🌍 Choose your timezone for daily reminders:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
     async def setup_jobs(self, app):
         print("✅ Job queue initialized:", app.job_queue is not None)
-        shanghai = timezone("Asia/Shanghai")  # Adjust to your timezone
-        now = dtime(hour=8, minute=0, tzinfo=shanghai) 
-
-        if app.job_queue:
+        for chat_id, tz_name in load_subscribers().items():
+            logging.info(f"Subscriber {chat_id} timezone: {tz_name}")
+            try:
+                tz = pytz.timezone(tz_name)
+            except Exception as e:
+                logging.error(f"Invalid timezone for chat {chat_id}: {tz_name}. Defaulting to Asia/Shanghai. Error: {e}")
+                tz = pytz.timezone("Asia/Shanghai")
+            
             app.job_queue.run_daily(
-                self.morning_reminder,
-                time=now,
-                name="daily_morning_reminder"
+                callback=self.morning_reminder,
+                time=dtime(hour=8, minute=0, second=0, tzinfo=tz),
+                name=f"daily_morning_reminder_{chat_id}",
+                data={"chat_id": int(chat_id)}
             )
-        else:
-            print("❌ job_queue is None")
+            logging.info(f"Scheduling daily reminder for chat {chat_id} at 8:00 AM in timezone {tz_name}")
 
-        #print(f"[DEBUG] JobQueue available: {app.job_queue}")
 
     def run(self):
+        logger.info("🚀 Bot started and polling for updates...")
         self.app.run_polling()
