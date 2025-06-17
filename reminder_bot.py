@@ -235,7 +235,8 @@ class CryptoReminderBot:
 
     async def setup_jobs(self, app):
         print("✅ Job queue initialized:", app.job_queue is not None)
-        for chat_id, tz_name in load_subscribers().items():
+        subscribers = load_subscribers()
+        for chat_id, tz_name in subscribers.items():
             logging.info(f"Subscriber {chat_id} timezone: {tz_name}")
             try:
                 tz = pytz.timezone(tz_name)

@@ -47,20 +47,25 @@ def get_top_coins():
         print(f"Failed to fetch top coins: {e}")
         return []
 
-def load_subscribers():
-    if not os.path.exists(SUBSCRIBER_FILE):
-        return []
-    with open(SUBSCRIBER_FILE, "r") as f:
-        return json.load(f)
+def load_subscribers(chat_id=None):
+    try:
+        with open(SUBSCRIBER_FILE, "r") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+            else:
+                return {str(chat_id): "Asia/Shanghai" for chat_id in data}
+    except FileNotFoundError:
+        return {}
 
-def save_subscribers(chat_ids):
+def save_subscribers(subscribers):
     with open(SUBSCRIBER_FILE, "w") as f:
-        json.dump(chat_ids, f)
+        json.dump(subscribers, f, indent=4)
 
 def _add_subscriber(chat_id):
     subscribers = load_subscribers()
-    if chat_id not in subscribers:
-        subscribers.append(chat_id)
+    if str(chat_id) not in subscribers:
+        subscribers[str(chat_id)] = "Asia/Shanghai"
         save_subscribers(subscribers)
         return True
     return False
@@ -68,7 +73,7 @@ def _add_subscriber(chat_id):
 def _remove_subscriber(chat_id):
     subscribers = load_subscribers()
     if chat_id in subscribers:
-        subscribers.remove(chat_id)
+        del subscribers[chat_id]
         save_subscribers(subscribers)
         return True
     return False
