@@ -56,6 +56,8 @@ def load_subscribers(chat_id=None):
             else:
                 return {str(chat_id): "Asia/Shanghai" for chat_id in data}
     except FileNotFoundError:
+        with open(SUBSCRIBER_FILE, "w") as f:
+            f.write("{}")
         return {}
 
 def save_subscribers(subscribers):

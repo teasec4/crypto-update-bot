@@ -99,6 +99,7 @@ class CryptoReminderBot:
             "   <i>Example:</i> <code>/price bitcoin eth</code>\n"
             "🟢 <b>/subscribe</b> — Subscribe to daily 8:00 AM crypto updates.\n"
             "🟢 <b>/unsubscribe</b> — Stop receiving daily updates.\n"
+            "🟢 <b>/change</b> — For change a Time Zone for corrent time daily updates.\n"
             #"🟢 <b>/testmorning</b> — Immediately test the morning message.\n\n"
             "💡 Use coin IDs like <code>bitcoin</code>, <code>ethereum</code>, <code>dogecoin</code>, etc.\n"
             "📈 Use the buttons or commands at any time for fresh info.\n\n"
