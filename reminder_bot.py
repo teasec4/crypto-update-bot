@@ -109,9 +109,9 @@ class CryptoReminderBot:
     async def subscribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
         subs = load_subscribers()
-        subs[str(chat_id)] = subs.get(str(chat_id), "Asia/Shanghai") 
-        save_subscribers(subs) 
         if _add_subscriber(chat_id):
+            subs[str(chat_id)] = subs.get(str(chat_id), "Asia/Shanghai") 
+            save_subscribers(subs)
             await update.message.reply_text("✅ You've subscribed to daily updates.")
         else:
             await update.message.reply_text("📬 You're already subscribed.")

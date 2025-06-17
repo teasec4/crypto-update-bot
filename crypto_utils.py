@@ -72,6 +72,7 @@ def _add_subscriber(chat_id):
 
 def _remove_subscriber(chat_id):
     subscribers = load_subscribers()
+    chat_id = str(chat_id)
     if chat_id in subscribers:
         del subscribers[chat_id]
         save_subscribers(subscribers)
