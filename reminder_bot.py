@@ -235,7 +235,12 @@ class CryptoReminderBot:
         )
 
     async def setup_jobs(self, app):
-        print("✅ Job queue initialized:", app.job_queue is not None)
+        if not app.job_queue:
+            logging.error("❌ JobQueue not available. Daily reminders will not be scheduled.")
+            return
+        
+        logging.info("✅ Job queue initialized:", app.job_queue is not None)
+        
         subscribers = load_subscribers()
         for chat_id, tz_name in subscribers.items():
             logging.info(f"Subscriber {chat_id} timezone: {tz_name}")
@@ -244,15 +249,17 @@ class CryptoReminderBot:
             except Exception as e:
                 logging.error(f"Invalid timezone for chat {chat_id}: {tz_name}. Defaulting to Asia/Shanghai. Error: {e}")
                 tz = pytz.timezone("Asia/Shanghai")
-            
-            app.job_queue.run_daily(
-                callback=self.morning_reminder,
-                time=dtime(hour=8, minute=0, second=0, tzinfo=tz),
-                name=f"daily_morning_reminder_{chat_id}",
-                data={"chat_id": int(chat_id)}
-            )
-            logging.info(f"Scheduling daily reminder for chat {chat_id} at 8:00 AM in timezone {tz_name}")
 
+            try:
+                app.job_queue.run_daily(
+                    callback=self.morning_reminder,
+                    time=dtime(hour=8, minute=0, second=0, tzinfo=tz),
+                    name=f"daily_morning_reminder_{chat_id}",
+                    data={"chat_id": int(chat_id)}
+                )
+                logging.info(f"Scheduling daily reminder for chat {chat_id} at 8:00 AM in timezone {tz_name}")
+            except Exception as e:
+                logging.exception(f"❌ Failed to schedule reminder for chat {chat_id}: {e}")
 
     def run(self):
         logger.info("🚀 Bot started and polling for updates...")
