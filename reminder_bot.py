@@ -35,7 +35,7 @@ class CryptoReminderBot:
         self.app.add_handler(CommandHandler("help", self.help))
         self.app.add_handler(CommandHandler("subscribe", self.subscribe))
         self.app.add_handler(CommandHandler("unsubscribe", self.unsubscribe))
-        #self.app.add_handler(CommandHandler("testmorning", self.test_morning))
+        self.app.add_handler(CommandHandler("testmorning", self.test_morning))
         self.app.add_handler(CallbackQueryHandler(self.button_handler))
         self.app.add_handler(CommandHandler("change", self.change_timezone))
 
