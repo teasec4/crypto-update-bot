@@ -47,14 +47,14 @@ def get_top_coins():
         print(f"Failed to fetch top coins: {e}")
         return []
 
-def load_subscribers(chat_id=None):
+def load_subscribers():
     try:
         with open(SUBSCRIBER_FILE, "r") as f:
             data = json.load(f)
             if isinstance(data, dict):
                 return data
             else:
-                return {str(chat_id): "Asia/Shanghai" for chat_id in data}
+                return {}
     except FileNotFoundError:
         with open(SUBSCRIBER_FILE, "w") as f:
             f.write("{}")
