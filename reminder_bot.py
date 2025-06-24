@@ -240,6 +240,7 @@ class CryptoReminderBot:
             return
         
         logging.info("✅ Job queue initialized:", app.job_queue is not None)
+        app.job_queue.jobs().clear()
         
         subscribers = load_subscribers()
         for chat_id, tz_name in subscribers.items():
