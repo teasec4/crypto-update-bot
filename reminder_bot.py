@@ -1,6 +1,6 @@
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from crypto_utils import get_price, get_top_coins, _add_subscriber, _remove_subscriber, load_subscribers, save_subscribers
+from crypto_utils import get_price, get_top_coins, _remove_subscriber, load_subscribers, save_subscribers
 from datetime import time as dtime
 import pytz
 import logging
@@ -27,7 +27,6 @@ class CryptoReminderBot:
             .build()
         )
         self._register_handlers()
-        self._add_subscriber = _add_subscriber
         self._remove_subscriber = _remove_subscriber
 
     def _register_handlers(self):
@@ -100,9 +99,11 @@ class CryptoReminderBot:
         await update.message.reply_text(text, parse_mode="HTML")
 
     async def subscribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
+        chat_id = str(update.effective_chat.id)
         subs = load_subscribers()
-        if _add_subscriber(chat_id):
+        if chat_id in subs:
+            await update.message.reply_text("📬 You're already subscribed.")
+        else:
             subs[chat_id] = {
                 "timezone": "Asia/Shanghai",
                 "coins": ["bitcoin", "ethereum", "dogecoin"],
@@ -110,8 +111,7 @@ class CryptoReminderBot:
             }
             save_subscribers(subs)
             await update.message.reply_text("✅ You've subscribed to daily updates.")
-        else:
-            await update.message.reply_text("📬 You're already subscribed.")
+       
 
     async def unsubscribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id

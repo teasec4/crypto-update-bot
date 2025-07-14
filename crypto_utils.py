@@ -63,17 +63,6 @@ def save_subscribers(subscribers):
     with open(SUBSCRIBER_FILE, "w") as f:
         json.dump(subscribers, f, indent=4)
 
-def _add_subscriber(chat_id):
-    subscribers = load_subscribers()
-    if str(chat_id) not in subscribers:
-        subscribers[chat_id] = {
-                "timezone": "Asia/Shanghai",
-                "coins": ["bitcoin", "ethereum", "dogecoin"],
-                "time": "08:00"
-            }
-        save_subscribers(subscribers)
-        return True
-    return False
 
 def _remove_subscriber(chat_id):
     subscribers = load_subscribers()
