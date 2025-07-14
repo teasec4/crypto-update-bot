@@ -66,7 +66,11 @@ def save_subscribers(subscribers):
 def _add_subscriber(chat_id):
     subscribers = load_subscribers()
     if str(chat_id) not in subscribers:
-        subscribers[str(chat_id)] = "Asia/Shanghai"
+        subscribers[chat_id] = {
+                "timezone": "Asia/Shanghai",
+                "coins": ["bitcoin", "ethereum", "dogecoin"],
+                "time": "08:00"
+            }
         save_subscribers(subscribers)
         return True
     return False
