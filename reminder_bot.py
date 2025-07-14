@@ -254,14 +254,14 @@ class CryptoReminderBot:
             subscribers[chat_id]['coins'] = valid_coins
 
         save_subscribers(subscribers)
-        msg = (f"✅ Your daily update coins have been set to: {', '.join(coins).upper()}")
+        msg = (f"✅ Your daily update coins have been set to: {', '.join(valid_coins).upper()}")
 
         if invalid_coins:
-            msg += f"\Invalid coins ignored: {','.join(invalid_coins)}"
+            msg += f"\nInvalid coins ignored: {','.join(invalid_coins)}"
 
         await update.message.reply_text(msg)
 
-        def _validate_coins(self, coins):
+    def _validate_coins(self, coins):
             valid_coins = get_top_coins()
             validated = []
             invalid = []
