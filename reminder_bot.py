@@ -1,4 +1,4 @@
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from crypto_utils import get_price, get_top_coins, _add_subscriber, _remove_subscriber, load_subscribers, save_subscribers
 from datetime import time as dtime
@@ -41,6 +41,8 @@ class CryptoReminderBot:
         self.app.add_handler(CommandHandler("settimezone", self.change_timezone))
         self.app.add_handler(CommandHandler("setcoins", self.set_coins))
         self.app.add_handler(CommandHandler("settime", self.set_time))
+        # Handle unknown commands
+        self.app.add_handler(MessageHandler(filters.COMMAND, self.unknown_command))
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
@@ -264,6 +266,9 @@ class CryptoReminderBot:
 
         save_subscribers(subscribers)
         await update.message.reply_text(f"✅ Your daily update time is set to {time_input}.")
+
+    async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("❓ Unknown command. Type /help to see available commands.")
 
     async def setup_jobs(self, app):
         if not app.job_queue:
