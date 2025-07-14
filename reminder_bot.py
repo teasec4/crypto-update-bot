@@ -38,34 +38,18 @@ class CryptoReminderBot:
         self.app.add_handler(CommandHandler("unsubscribe", self.unsubscribe))
         self.app.add_handler(CommandHandler("testmorning", self.test_morning))
         self.app.add_handler(CallbackQueryHandler(self.button_handler))
-        self.app.add_handler(CommandHandler("change", self.change_timezone))
+        self.app.add_handler(CommandHandler("settimezone", self.change_timezone))
         self.app.add_handler(CommandHandler("setcoins", self.set_coins))
         self.app.add_handler(CommandHandler("settime", self.set_time))
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        top_coins = get_top_coins()
-        #create a top 10 coins buttons witch can return data
-        keyboard = [
-            [InlineKeyboardButton(coin1.title(), callback_data=f"price_{coin1}"),
-            InlineKeyboardButton(coin2.title(), callback_data=f"price_{coin2}")]
-            for coin1, coin2 in zip(top_coins[::2], top_coins[1::2])
-        ]
-        if len(top_coins) % 2 != 0:
-            keyboard.append([InlineKeyboardButton(top_coins[-1].title(), callback_data=f"price_{top_coins[-1]}")])
-        keyboard.append([InlineKeyboardButton("Top 10 Coins", callback_data="top10")])
-        keyboard.append([
-            InlineKeyboardButton("📬 Subscribe", callback_data="subscribe"),
-            InlineKeyboardButton("🚫 Unsubscribe", callback_data="unsubscribe")
-        ])
-        reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
-            "Welcome to Crypto Reminder Bot!\nUse /help for full instructions.",
-            reply_markup=reply_markup
+            "Welcome to Crypto Reminder Bot!\nUse /help to see available commands."
         )
 
     async def price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not context.args:
-            await update.message.reply_text("Please specify one or more coin IDs, e.g., /price bitcoin eth or tipe /help for help")
+            await update.message.reply_text("Please specify one or more coin IDs, e.g., /price bitcoin eth or type /help for help")
             return
 
         coin_ids = [coin.lower() for coin in context.args]
@@ -75,15 +59,15 @@ class CryptoReminderBot:
             data = prices.get(coin)
             if data:
                 change = data['change_24h']
-                if change >= 0:
-                    emoji = "🟢" 
-                else:
-                    emoji = "🔻"
+                if change > 0:
+                    emoji = "📈"
+                elif change < 0:
+                    emoji = "📉"
                 msg = (
-                    f"<b>💰 {coin.upper()}</b>\n"
-                    f"Price: <code>${data['usd']:,.2f}</code>\n"
-                    f"24h Change: {emoji} <i>{data['change_24h']:.2f}%</i>\n"
-                    f"Market Cap: <code>${data['market_cap']:,.0f}</code>\n"
+                    f"{coin.upper()}\n"
+                    f"Price: ${data['usd']:,.2f}\n"
+                    f"24h Change: {emoji} {data['change_24h']:.2f}%\n"
+                    f"Market Cap: ${data['market_cap']:,.0f}\n"
                 )
                 await update.message.reply_text(msg, parse_mode="HTML", disable_web_page_preview=False)
             else:
@@ -96,20 +80,19 @@ class CryptoReminderBot:
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = (
             "📘 <b>Crypto Reminder Bot Help</b>\n\n"
-            "Here's what you can do:\n\n"
-            "🟢 <b>/start</b> — Show interactive buttons for top coins.\n"
-            "🟢 <b>/price &lt;coin_id&gt;</b> — Get price, market cap, and 24h change.\n"
-            "   <i>Example:</i> <code>/price bitcoin eth</code>\n"
+            "Here are the available commands:\n\n"
+            "🟢 <b>/start</b> — Start the bot and see a welcome message.\n"
+            "🟢 <b>/price &lt;coin_id&gt;</b> — Get the price, market cap, and 24h change.\n"
+            "  <i>Example:</i> <code>/price bitcoin eth</code>\n\n"
             "🟢 <b>/subscribe</b> — Subscribe to daily crypto updates.\n"
-            "🟢 <b>/unsubscribe</b> — Stop receiving daily updates.\n"
-            "🟢 <b>/change</b> — For change a Time Zone for corrent time daily updates.\n"
-            "🟢 <b>/setcoins &lt;coin_ids&gt;</b> - Select which coins to include in daily updates.\n" \
-            "<i>Example:</i> <code>/setcoins bitchoin eth dogecoin</>\n"
-            "🟢 <b>/settime &lt;HH:MM&gt;</b> - Set your prefferred daily updates tome.\n" \
-            "<i>Example:</i> <code>/settime 09:30</>\n\n"
-            "🟢 <b>/testmorning</b> — Immediately test the morning message.\n\n"
-            "💡 Use coin IDs like <code>bitcoin</code>, <code>ethereum</code>, <code>dogecoin</code>, etc.\n"
-            "📈 Use the buttons or commands at any time for fresh info.\n\n"
+            "🟢 <b>/unsubscribe</b> — Stop receiving daily updates.\n\n"
+            "🟢 <b>/settimezone</b> — Change your timezone for daily updates.\n"
+            "🟢 <b>/setcoins &lt;coin_ids&gt;</b> — Choose which coins to include.\n"
+            "  <i>Example:</i> <code>/setcoins bitcoin eth dogecoin</code>\n\n"
+            "🟢 <b>/settime &lt;HH:MM&gt;</b> — Set your preferred daily update time.\n"
+            "  <i>Example:</i> <code>/settime 09:30</code>\n\n"
+            "🟢 <b>/testmorning</b> — Test the morning message immediately.\n\n"
+            "💡 <b>Tip:</b> Use coin IDs like <code>bitcoin</code>, <code>ethereum</code>, <code>dogecoin</code>.\n"
             "❓ If you see strange output, check your coin ID spelling.\n"
         )
         await update.message.reply_text(text, parse_mode="HTML")
@@ -140,33 +123,9 @@ class CryptoReminderBot:
         await query.answer()
         data = query.data
         # get data from button
-        if data.startswith("price_"):
-            coin_id = data.replace("price_", "")
-            prices = get_price(coin_id)
-            coin_data = prices.get(coin_id)
-            if coin_data:
-                # get up or down emoji
-                change = coin_data['change_24h']
-                if change >= 0:
-                    emoji = "🟢" 
-                else:
-                    emoji = "🔻"
-                # output message
-                msg = (
-                    f"💰<b>{coin_id.upper()}</b>\n"
-                    f"Price: <code>${coin_data['usd']:,.2f}</code>\n"
-                    f"{emoji} 24h Change: <i>{coin_data['change_24h']:.2f}%</i>\n"
-                    f"Market Cap: <code>${coin_data['market_cap']:,.0f}</code>\n"
-                )
-                await query.message.reply_text(msg, parse_mode="HTML", disable_web_page_preview=False)
-            else:
-                await query.message.reply_text(f"❌ Could not find price for '{coin_id}'")
-        # top 10 coin by cap
-        elif data == "top10":
-            top_coins = get_top_coins()
-            await query.message.reply_text("📈 Top 10 Coin IDs:\n" + ", ".join(top_coins))
+
         # subscribe button handler       
-        elif data == "subscribe":
+        if data == "subscribe":
             chat_id = update.effective_chat.id
             if self._add_subscriber(chat_id):
                 await query.message.reply_text("✅ You've subscribed to daily updates.")
