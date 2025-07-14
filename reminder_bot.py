@@ -100,10 +100,14 @@ class CryptoReminderBot:
             "🟢 <b>/start</b> — Show interactive buttons for top coins.\n"
             "🟢 <b>/price &lt;coin_id&gt;</b> — Get price, market cap, and 24h change.\n"
             "   <i>Example:</i> <code>/price bitcoin eth</code>\n"
-            "🟢 <b>/subscribe</b> — Subscribe to daily 8:00 AM crypto updates.\n"
+            "🟢 <b>/subscribe</b> — Subscribe to daily crypto updates.\n"
             "🟢 <b>/unsubscribe</b> — Stop receiving daily updates.\n"
             "🟢 <b>/change</b> — For change a Time Zone for corrent time daily updates.\n"
-            #"🟢 <b>/testmorning</b> — Immediately test the morning message.\n\n"
+            "🟢 <b>/setcoins &lt;coin_ids&gt;</b> - Select which coins to include in daily updates.\n" \
+            "<i>Example:</i> <code>/setcoins bitchoin eth dogecoin</>\n"
+            "🟢 <b>/settime &lt;HH:MM&gt;</b> - Set your prefferred daily updates tome.\n" \
+            "<i>Example:</i> <code>/settime 09:30</>\n\n"
+            "🟢 <b>/testmorning</b> — Immediately test the morning message.\n\n"
             "💡 Use coin IDs like <code>bitcoin</code>, <code>ethereum</code>, <code>dogecoin</code>, etc.\n"
             "📈 Use the buttons or commands at any time for fresh info.\n\n"
             "❓ If you see strange output, check your coin ID spelling.\n"
@@ -210,7 +214,11 @@ class CryptoReminderBot:
         await context.bot.send_message(chat_id=chat_id, text=message)
 
     async def test_morning(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        fake_context = type("ctx", (), {"bot": context.bot})
+        chat_id = str(update.effective_chat.id)
+        fake_context = type("ctx", (), {
+            "bot": context.bot,
+            "job": type("job", (), {"data": {"chat_id": chat_id}})
+        })
         await self.morning_reminder(fake_context)
 
     async def change_timezone(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
