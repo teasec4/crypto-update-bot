@@ -262,15 +262,15 @@ class CryptoReminderBot:
         await update.message.reply_text(msg)
 
     def _validate_coins(self, coins):
-            valid_coins = get_top_coins()
-            validated = []
-            invalid = []
-            for coin in coins:
-                if coin.lower() in valid_coins:
-                    validated.append(coin.lower())
-                else:
-                    invalid.append(coin)
-            return validated, invalid
+        valid_coins = get_top_coins()
+        validated = []
+        invalid = []
+        for coin in coins:
+            if coin.lower() in valid_coins:
+                validated.append(coin.lower())
+            else:
+                invalid.append(coin)
+        return validated, invalid
 
         
 
