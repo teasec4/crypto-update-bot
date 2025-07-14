@@ -28,6 +28,7 @@ class CryptoReminderBot:
         )
         self._register_handlers()
         self._remove_subscriber = _remove_subscriber
+        self.alerted_coins = set()
 
     def _register_handlers(self):
         self.app.add_handler(CommandHandler("start", self.start))
@@ -45,7 +46,7 @@ class CryptoReminderBot:
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
-            "Welcome to Crypto Reminder Bot!\nUse /help to see available commands."
+            "Welcome to Crypto Reminder Bot!\nUse /help to see available commands. \nAnd also use /subscribe"
         )
 
     async def price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -270,6 +271,27 @@ class CryptoReminderBot:
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❓ Unknown command. Type /help to see available commands.")
 
+    async def price_alert_monitor(self, context: ContextTypes.DEFAULT_TYPE):
+        subscibers = load_subscribers()
+        threshold = 5
+
+        tracked_coins = set()
+        for sub in subscibers.values():
+            tracked_coins.update(sub.get('coins', []))
+        
+        prices = get_price(",".join(tracked_coins))
+
+        for coin, data in prices.items():
+            change_24h = data.get('change_24h', 0)
+            if abs(change_24h) >= threshold and coin not in self.alerted_coins:
+                message = f"ALERT: {coin.upper()} 24h Change: {change_24h:.2f}%"
+                for chat_id, sub in subscibers.items():
+                    if coin in sub.get('coins', []):
+                        await context.bot.send_message(chat_id=chat_id, text=message)
+                self.alerted_coins.add(coin)
+            elif abs(change_24h) < threshold and coin in self.alerted_coins:
+                self.alerted_coins.remove(coin)
+
     async def setup_jobs(self, app):
         if not app.job_queue:
             logging.error("❌ JobQueue not available. Daily reminders will not be scheduled.")
@@ -293,6 +315,15 @@ class CryptoReminderBot:
                 data={"chat_id": int(chat_id)}
             )
             logger.info(f"📅 Scheduled reminder for chat {chat_id} at {time_str} in timezone {tz_name}")
+        
+        # Price alert job every 5 minutes
+        app.job_queue.run_repeating(
+            self.price_alert_monitor,
+            interval=300,
+            first=10,
+            name="price_alert_monitor"
+        )
+        logger.info("🚨 Price alert monitor scheduled every 5 minutes.")
 
     def run(self):
         logger.info("🚀 Bot started and polling for updates...")
