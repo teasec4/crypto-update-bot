@@ -30,21 +30,20 @@ def get_price(coin_ids):
         print(f"Failed to fetch prices: {e}")
         return {}
 
-def get_top_coins():
+def get_top_coins(limit=100):
     url = "https://api.coingecko.com/api/v3/coins/markets"
     params = {
-        'vs_currency': 'usd',
-        'order': 'market_cap_desc',
-        'per_page': 10,
-        'page': 1
+        "vs_currency": "usd",
+        "order": "market_cap_desc",
+        "per_page": limit,
+        "page": 1,
+        "sparkline": "false"
     }
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
-        return [coin['id'] for coin in data]
-    except requests.RequestException as e:
-        print(f"Failed to fetch top coins: {e}")
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        coins = response.json()
+        return [coin['id'] for coin in coins]
+    else:
         return []
 
 def load_subscribers():

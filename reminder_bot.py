@@ -221,7 +221,7 @@ class CryptoReminderBot:
         await update.message.reply_text(msg)
 
     def _validate_coins(self, coins):
-        valid_coins = get_top_coins()
+        valid_coins = get_top_coins(limit=100)
         validated = []
         invalid = []
         for coin in coins:
