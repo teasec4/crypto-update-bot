@@ -4,6 +4,7 @@ from crypto_utils import get_price, get_top_coins, _add_subscriber, _remove_subs
 from datetime import time as dtime
 import pytz
 import logging
+import re
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +39,8 @@ class CryptoReminderBot:
         self.app.add_handler(CommandHandler("testmorning", self.test_morning))
         self.app.add_handler(CallbackQueryHandler(self.button_handler))
         self.app.add_handler(CommandHandler("change", self.change_timezone))
+        self.app.add_handler(CommandHandler("setcoins", self.set_coins))
+        self.app.add_handler(CommandHandler("settime", self.set_time))
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         top_coins = get_top_coins()
@@ -111,7 +114,11 @@ class CryptoReminderBot:
         chat_id = update.effective_chat.id
         subs = load_subscribers()
         if _add_subscriber(chat_id):
-            subs[str(chat_id)] = subs.get(str(chat_id), "Asia/Shanghai") 
+            subs[chat_id] = {
+                "timezone": "Asia/Shanghai",
+                "coins": ["bitcoin", "ethereum", "dogecoin"],
+                "time": "08:00"
+            }
             save_subscribers(subs)
             await update.message.reply_text("✅ You've subscribed to daily updates.")
         else:
@@ -174,48 +181,33 @@ class CryptoReminderBot:
 
             subscribers = load_subscribers()
             if chat_id in subscribers:
-                subscribers[chat_id] = tz
+                subscribers[chat_id]['timezone'] = tz
                 save_subscribers(subscribers)
                 await query.message.reply_text(f"🌍 Timezone changed to {tz.replace('_', ' ')} for daily reminders.")
             else:
                 await query.message.reply_text("❌ You need to subscribe first to change timezone.")
 
     async def morning_reminder(self, context: ContextTypes.DEFAULT_TYPE):
-        logger.info("Running morning reminder job")
-        try:
-            coins = ['bitcoin', 'ethereum', 'dogecoin']
-            messages = []
+        chat_id = str(context.job.data['chat_id'])
+        subscribers = load_subscribers()
+        user_config = subscribers.get(chat_id)
 
-            for coin in coins:
-                data = get_price(coin).get(coin)
-                if not data:
-                    continue
-                if data['change_24h'] >= 0:
-                    emoji = "🟢" 
-                else:
-                    emoji = "🔻"
+        if not user_config:
+            logger.warning(f"No configuration found for chat {chat_id}")
+            return
 
-                msg = (
-                    f"🔹 <b>{coin.upper()}</b>\n"
-                    f"💰 Price: <code>${data['usd']:,.2f}</code>\n"
-                    f"{emoji} 24h Change:  <i>{data['change_24h']:.2f}%</i>\n"
-                    f"🏦 Market Cap: <code>${data['market_cap']:,.0f}</code>\n\n"
-                )
-                messages.append(msg)
-                logging.info(f"Morning reminder for {coin}: {msg.strip()}")
-            if len(messages) == len(coins):
-                logging.info("All coins data fetched successfully.")
-            else:
-                logging.warning("Some coins data could not be fetched.")
-            if not messages:
-                logging.warning("No messages to send in morning reminder.")
-                return
-            
-            full_message = "<b>🌅 Morning Crypto Update</b>\n\n" + "\n".join(messages)
-            for chat_id in load_subscribers():
-                    await context.bot.send_message(chat_id=chat_id, text=full_message, parse_mode="HTML")
-        except Exception as e:
-            print(f"❌ Error in morning reminder: {e}")
+        coins = user_config.get('coins', ['bitcoin', 'ethereum', 'dogecoin'])
+        prices = get_price(",".join(coins))
+
+        lines = ["🌅 Morning Crypto Update\n"]
+        for coin in coins:
+            data = prices.get(coin)
+            if data:
+                emoji = "🔺" if data['change_24h'] >= 0 else "🔻"
+                lines.append(f"{coin.upper()}: ${data['usd']:,.2f} {emoji}{data['change_24h']:.1f}%")
+
+        message = "\n".join(lines)
+        await context.bot.send_message(chat_id=chat_id, text=message)
 
     async def test_morning(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         fake_context = type("ctx", (), {"bot": context.bot})
@@ -234,6 +226,74 @@ class CryptoReminderBot:
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+    async def set_coins(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = str(update.effective_chat.id)
+        if not context.args:
+            await update.message.reply_text("❌ Please specify coin IDs. Example: /setcoins bitcoin eth doge")
+            return
+        coins = [coin.lower() for coin in context.args]
+        valid_coins, invalid_coins = self._validate_coins(coins)
+
+        if not valid_coins:
+            await update.message.reply_text("None of the provided coin IDs are valid. Please try again")
+            return
+        
+        subscribers = load_subscribers()
+
+        if chat_id not in subscribers:
+            subscribers[chat_id] = {"timezone" : "Asia/Shanghai", "coins": valid_coins, "time": "08:00"}
+        else:
+            subscribers[chat_id]['coins'] = valid_coins
+
+        save_subscribers(subscribers)
+        msg = (f"✅ Your daily update coins have been set to: {', '.join(coins).upper()}")
+
+        if invalid_coins:
+            msg += f"\Invalid coins ignored: {','.join(invalid_coins)}"
+
+        await update.message.reply_text(msg)
+
+        def _validate_coins(self, coins):
+            valid_coins = get_top_coins()
+            validated = []
+            invalid = []
+            for coin in coins:
+                if coin.lower() in valid_coins:
+                    validated.append(coin.lower())
+                else:
+                    invalid.append(coin)
+            return validated, invalid
+
+        
+
+    async def set_time(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = str(update.effective_chat.id)
+        if not context.args:
+            await update.message.reply_text("❌ Please provide a time in HH:MM format. Example: /settime 09:30")
+            return
+
+        time_input = context.args[0]
+        if not re.match(r'^\d{2}:\d{2}$', time_input):
+            await update.message.reply_text("❌ Invalid time format. Please use HH:MM (24-hour format).")
+            return
+        
+        try:
+            hour, minute = map(int, time_input.split(":"))
+            if not (0 <= hour <= 23 and 0 <= minute <=59):
+                raise ValueError
+        except ValueError:
+            await update.message.reply_text("Invalid time value. Hours should be 00-23 and minuts 00-59")
+            return
+        
+        subscribers = load_subscribers()
+        if chat_id not in subscribers:
+            subscribers[chat_id] = {"timezone": "Asia/Shanghai", "coins": ["bitcoin"], "time": time_input}
+        else:
+            subscribers[chat_id]['time'] = time_input
+
+        save_subscribers(subscribers)
+        await update.message.reply_text(f"✅ Your daily update time is set to {time_input}.")
+
     async def setup_jobs(self, app):
         if not app.job_queue:
             logging.error("❌ JobQueue not available. Daily reminders will not be scheduled.")
@@ -241,26 +301,22 @@ class CryptoReminderBot:
         
         logging.info("✅ Job queue initialized:", app.job_queue is not None)
         
-        
+        app.job_queue.jobs().clear()
         subscribers = load_subscribers()
-        for chat_id, tz_name in subscribers.items():
-            logging.info(f"Subscriber {chat_id} timezone: {tz_name}")
-            try:
-                tz = pytz.timezone(tz_name)
-            except Exception as e:
-                logging.error(f"Invalid timezone for chat {chat_id}: {tz_name}. Defaulting to Asia/Shanghai. Error: {e}")
-                tz = pytz.timezone("Asia/Shanghai")
+        for chat_id, config in subscribers.items():
+            time_str = config.get('time', '08:00')
+            hour, minute = map(int, time_str.split(':'))
+            tz_name = config.get('timezone', 'Asia/Shanghai')
 
-            try:
-                app.job_queue.run_daily(
-                    callback=self.morning_reminder,
-                    time=dtime(hour=8, minute=0, second=0, tzinfo=tz),
-                    name=f"daily_morning_reminder_{chat_id}",
-                    data={"chat_id": int(chat_id)}
-                )
-                logging.info(f"Scheduling daily reminder for chat {chat_id} at 8:00 AM in timezone {tz_name}")
-            except Exception as e:
-                logging.exception(f"❌ Failed to schedule reminder for chat {chat_id}: {e}")
+            tz = pytz.timezone(tz_name)
+
+            app.job_queue.run_daily(
+                callback=self.morning_reminder,
+                time=dtime(hour=hour, minute=minute, tzinfo=tz),
+                name=f"daily_morning_reminder_{chat_id}",
+                data={"chat_id": int(chat_id)}
+            )
+            logger.info(f"📅 Scheduled reminder for chat {chat_id} at {time_str} in timezone {tz_name}")
 
     def run(self):
         logger.info("🚀 Bot started and polling for updates...")
