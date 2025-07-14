@@ -309,7 +309,7 @@ class CryptoReminderBot:
         
         logging.info("✅ Job queue initialized:", app.job_queue is not None)
         
-        app.job_queue.jobs().clear()
+
         subscribers = load_subscribers()
         for chat_id, config in subscribers.items():
             time_str = config.get('time', '08:00')
