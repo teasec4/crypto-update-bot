@@ -30,7 +30,7 @@ def get_price(coin_ids):
         print(f"Failed to fetch prices: {e}")
         return {}
 
-def get_top_coins(limit=100):
+def get_top_coins(limit=1000):
     url = "https://api.coingecko.com/api/v3/coins/markets"
     params = {
         "vs_currency": "usd",

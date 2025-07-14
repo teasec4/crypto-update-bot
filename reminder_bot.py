@@ -219,9 +219,10 @@ class CryptoReminderBot:
             msg += f"\nInvalid coins ignored: {','.join(invalid_coins)}"
 
         await update.message.reply_text(msg)
+        
 
     def _validate_coins(self, coins):
-        valid_coins = get_top_coins(limit=100)
+        valid_coins = get_top_coins(limit=1000)
         validated = []
         invalid = []
         for coin in coins:
@@ -229,6 +230,9 @@ class CryptoReminderBot:
                 validated.append(coin.lower())
             else:
                 invalid.append(coin)
+        logger.info(f"User input coins: {coins}")
+        logger.info(f"Valid coins after validation: {validated}")
+        logger.info(f"Invalid coins: {invalid}")
         return validated, invalid
 
         
