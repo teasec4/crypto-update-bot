@@ -284,7 +284,8 @@ class CryptoReminderBot:
         for coin, data in prices.items():
             change_24h = data.get('change_24h', 0)
             if abs(change_24h) >= threshold and coin not in self.alerted_coins:
-                message = f"ALERT: {coin.upper()} 24h Change: {change_24h:.2f}%"
+                emoji = "🔺" if change_24h >= 0 else "🔻"
+                message = f"⚡️{coin.upper()} has chenged {emoji} {change_24h:+.2f}% - now ${data['usd']:,.2f}"
                 for chat_id, sub in subscibers.items():
                     if coin in sub.get('coins', []):
                         await context.bot.send_message(chat_id=chat_id, text=message)
