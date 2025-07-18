@@ -222,20 +222,26 @@ class CryptoReminderBot:
         valid_coins, invalid_coins = self._validate_coins(coins)
 
         if not valid_coins:
-            await update.message.reply_text("None of the provided coin IDs are valid. Please try again")
+            msg = "❌ None of the provided coin IDs are valid. Please try again."
+            top_coins = get_top_coins()
+            msg += f"\n📈 Top 10 Coin IDs: {', '.join(top_coins)}"
+            await update.message.reply_text(msg)
             return
-        
-        user = get_user(chat_id)
 
-        if not user:
-            save_user(chat_id, "Asia/Shanghai", valid_coins, "08:00")
-        else:
-            save_user(chat_id, user["timezone"], valid_coins, user["time"])
+        try:
+            user = get_user(chat_id)
+            if not user:
+                save_user(chat_id, "Asia/Shanghai", valid_coins, "08:00")
+            else:
+                save_user(chat_id, user["timezone"], valid_coins, user["notification_time"])
+            msg = f"✅ Your daily update coins have been set to: {', '.join(valid_coins).upper()}"
+            if invalid_coins:
+                msg += f"\nInvalid coins ignored: {', '.join(invalid_coins)}"
+            await update.message.reply_text(msg)
+        except Exception as e:
+            logger.error(f"Error setting coins for chat {chat_id}: {e}")
+            await update.message.reply_text("❌ Failed to set coins. Please try again.")
 
-        if invalid_coins:
-            msg += f"\nInvalid coins ignored: {','.join(invalid_coins)}"
-        await update.message.reply_text(msg)
-        
 
     def _validate_coins(self, coins):
         valid_coins = get_top_coins(limit=1000)
