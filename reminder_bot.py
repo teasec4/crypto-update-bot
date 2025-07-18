@@ -1,10 +1,12 @@
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from crypto_utils import get_price, get_top_coins, _remove_subscriber, load_subscribers, save_subscribers
+from crypto_utils import get_price, get_top_coins
 from datetime import time as dtime
 import pytz
 import logging
 import re
+from db import get_user, get_all_users, save_user, remove_user, init_db
+from json_migrate_to_db import migrate_from_json
 
 # Configure logging
 logging.basicConfig(
@@ -27,7 +29,6 @@ class CryptoReminderBot:
             .build()
         )
         self._register_handlers()
-        self._remove_subscriber = _remove_subscriber
         self.alerted_coins = set()
 
     def _register_handlers(self):
@@ -101,22 +102,23 @@ class CryptoReminderBot:
 
     async def subscribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = str(update.effective_chat.id)
-        subs = load_subscribers()
-        if chat_id in subs:
+        user = get_user(chat_id)
+        if user:
             await update.message.reply_text("📬 You're already subscribed.")
         else:
-            subs[chat_id] = {
-                "timezone": "Asia/Shanghai",
-                "coins": ["bitcoin", "ethereum", "dogecoin"],
-                "time": "08:00"
-            }
-            save_subscribers(subs)
+            save_user(chat_id, "Asia/Shanghai",["bitcoin", "ethereum", "dogecoin"], '08:00')
+            await self.setup_jobs(self.app)
             await update.message.reply_text("✅ You've subscribed to daily updates.")
        
 
     async def unsubscribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        if _remove_subscriber(chat_id):
+        chat_id = str(update.effective_chat.id)
+        if remove_user(chat_id):
+            if self.app.job_queue:
+                jobs = self.app.job_queue.get_jobs_by_name(f"daily_morning_reminder_{chat_id}")
+                for job in jobs:
+                    job.schedule_removal()
+                logger.info(f"Removed job for chat {chat_id}")
             await update.message.reply_text("🚫 You've unsubscribed.")
         else:
             await update.message.reply_text("❌ You weren't subscribed.")
@@ -125,44 +127,59 @@ class CryptoReminderBot:
         query = update.callback_query
         await query.answer()
         data = query.data
+        chat_id = str(update.effective_chat.id)
         # get data from button
 
         # subscribe button handler       
         if data == "subscribe":
-            chat_id = update.effective_chat.id
-            if self._add_subscriber(chat_id):
-                await query.message.reply_text("✅ You've subscribed to daily updates.")
-            else:
+            user = get_user(chat_id)
+            if user:
                 await query.message.reply_text("📬 You're already subscribed.")
+            else:
+                save_user(chat_id, "Asia/Shanghai", ["bitcoin", "ethereum", "dogecoin"], "08:00")
+                await self.setup_jobs(self.app)
+                await query.message.reply_text("✅ You've subscribed to daily updates.")
         # unsubscribe button handler
         elif data == "unsubscribe":
-            chat_id = update.effective_chat.id
-            if self._remove_subscriber(chat_id):
+            if remove_user(chat_id):
+                if self.app.job_queue:
+                    jobs = self.app.job_queue.get_jobs_by_name(f"daily_morning_reminder_{chat_id}")
+                    for job in jobs:
+                        job.schedule_removal()
+                    logger.info(f"Removed job for chat {chat_id}")
                 await query.message.reply_text("🚫 Unsubscribed via button.")
             else:
                 await query.message.reply_text("❌ You weren't subscribed.")
         elif data.startswith("tz_"):
             tz = data.replace("tz_", "")
-            chat_id = str(update.effective_chat.id)
-
-            subscribers = load_subscribers()
-            if chat_id in subscribers:
-                subscribers[chat_id]['timezone'] = tz
-                save_subscribers(subscribers)
+            user = get_user(chat_id)
+            if user:
+                save_user(chat_id, tz, user['coins'], user['time'])
+                if self.app.job_queue:
+                    jobs = self.app.job_queue.get_jobs_by_name(f"daily_morning_reminder_{chat_id}")
+                    for job in jobs:
+                        job.schedule_removal()
+                    hour, minute = map(int, user['tiem'].split(":"))
+                    tz_obj = pytz.timezone(tz)
+                    self.app.job_queue.run_daily(
+                        callback=self.morning_reminder,
+                        time=dtime(hour=hour, minute=minute, tzinfo=tz_obj),
+                        name=f"daily_morning_reminder_{chat_id}",
+                        data={"chat_id": int(chat_id)}
+                    )
+                    logger.info(f"Rescheduled reminder for chat {chat_id} in timezone {tz}")
                 await query.message.reply_text(f"🌍 Timezone changed to {tz.replace('_', ' ')} for daily reminders.")
             else:
                 await query.message.reply_text("❌ You need to subscribe first to change timezone.")
 
     async def morning_reminder(self, context: ContextTypes.DEFAULT_TYPE):
         chat_id = str(context.job.data['chat_id'])
-        subscribers = load_subscribers()
-        user_config = subscribers.get(chat_id)
-
-        if not user_config:
+        user = get_user(chat_id)
+        if not user:
             logger.warning(f"No configuration found for chat {chat_id}")
             return
 
-        coins = user_config.get('coins', ['bitcoin', 'ethereum', 'dogecoin'])
+        coins = user.get('coins', ['bitcoin', 'ethereum', 'dogecoin'])
         prices = get_price(",".join(coins))
 
         lines = ["🌅 Morning Crypto Update\n"]
@@ -208,19 +225,15 @@ class CryptoReminderBot:
             await update.message.reply_text("None of the provided coin IDs are valid. Please try again")
             return
         
-        subscribers = load_subscribers()
+        user = get_user(chat_id)
 
-        if chat_id not in subscribers:
-            subscribers[chat_id] = {"timezone" : "Asia/Shanghai", "coins": valid_coins, "time": "08:00"}
+        if not user:
+            save_user(chat_id, "Asia/Shanghai", valid_coins, "08:00")
         else:
-            subscribers[chat_id]['coins'] = valid_coins
-
-        save_subscribers(subscribers)
-        msg = (f"✅ Your daily update coins have been set to: {', '.join(valid_coins).upper()}")
+            save_user(chat_id, user["timezone"], valid_coins, user["time"])
 
         if invalid_coins:
             msg += f"\nInvalid coins ignored: {','.join(invalid_coins)}"
-
         await update.message.reply_text(msg)
         
 
@@ -259,36 +272,49 @@ class CryptoReminderBot:
             await update.message.reply_text("Invalid time value. Hours should be 00-23 and minuts 00-59")
             return
         
-        subscribers = load_subscribers()
-        if chat_id not in subscribers:
-            subscribers[chat_id] = {"timezone": "Asia/Shanghai", "coins": ["bitcoin"], "time": time_input}
+        user = get_user(chat_id)
+        if not user:
+            save_user(chat_id, "Asia/Shanghai", ["bitcoin"], time_input)
         else:
-            subscribers[chat_id]['time'] = time_input
+            save_user(chat_id, user["timezone"], user["coins"], time_input)
+            # Reschedule job with new time
+            if self.app.job_queue:
+                jobs = self.app.job_queue.get_jobs_by_name(f"daily_morning_reminder_{chat_id}")
+                for job in jobs:
+                    job.schedule_removal()
+                tz = pytz.timezone(user["timezone"])
+                self.app.job_queue.run_daily(
+                    callback=self.morning_reminder,
+                    time=dtime(hour=hour, minute=minute, tzinfo=tz),
+                    name=f"daily_morning_reminder_{chat_id}",
+                    data={"chat_id": int(chat_id)}
+                )
+                logger.info(f"Rescheduled reminder for chat {chat_id} at {time_input}")
 
-        save_subscribers(subscribers)
         await update.message.reply_text(f"✅ Your daily update time is set to {time_input}.")
 
+    
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❓ Unknown command. Type /help to see available commands.")
 
     async def price_alert_monitor(self, context: ContextTypes.DEFAULT_TYPE):
-        subscibers = load_subscribers()
+        users = get_all_users()
         threshold = 5
 
         tracked_coins = set()
-        for sub in subscibers.values():
-            tracked_coins.update(sub.get('coins', []))
-        
+        for user in users:
+            tracked_coins.update(user.get('coins', []))
+
         prices = get_price(",".join(tracked_coins))
 
         for coin, data in prices.items():
             change_24h = data.get('change_24h', 0)
             if abs(change_24h) >= threshold and coin not in self.alerted_coins:
                 emoji = "🔺" if change_24h >= 0 else "🔻"
-                message = f"⚡️{coin.upper()} has chenged {emoji} {change_24h:+.2f}% - now ${data['usd']:,.2f}"
-                for chat_id, sub in subscibers.items():
-                    if coin in sub.get('coins', []):
-                        await context.bot.send_message(chat_id=chat_id, text=message)
+                message = f"⚡️{coin.upper()} has changed {emoji} {change_24h:+.2f}% - now ${data['usd']:,.2f}"
+                for user in users:
+                    if coin in user.get('coins', []):
+                        await context.bot.send_message(chat_id=user["user_id"], text=message)
                 self.alerted_coins.add(coin)
             elif abs(change_24h) < threshold and coin in self.alerted_coins:
                 self.alerted_coins.remove(coin)
@@ -300,12 +326,12 @@ class CryptoReminderBot:
         
         logging.info("✅ Job queue initialized:", app.job_queue is not None)
         
-
-        subscribers = load_subscribers()
-        for chat_id, config in subscribers.items():
-            time_str = config.get('time', '08:00')
+        users = get_all_users()
+        for user in users:
+            chat_id = user["user_id"]
+            time_str = user.get('time', '08:00')
             hour, minute = map(int, time_str.split(':'))
-            tz_name = config.get('timezone', 'Asia/Shanghai')
+            tz_name = user.get('timezone', 'Asia/Shanghai')
 
             tz = pytz.timezone(tz_name)
 
@@ -327,5 +353,7 @@ class CryptoReminderBot:
         logger.info("🚨 Price alert monitor scheduled every 5 minutes.")
 
     def run(self):
+        init_db()
+        migrate_from_json()
         logger.info("🚀 Bot started and polling for updates...")
         self.app.run_polling()

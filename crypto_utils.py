@@ -45,31 +45,3 @@ def get_top_coins(limit=1000):
         return [coin['id'] for coin in coins]
     else:
         return []
-
-def load_subscribers():
-    try:
-        with open(SUBSCRIBER_FILE, "r") as f:
-            data = json.load(f)
-            if isinstance(data, dict):
-                return data
-            else:
-                return {}
-    except FileNotFoundError:
-        with open(SUBSCRIBER_FILE, "w") as f:
-            f.write("{}")
-        return {}
-
-def save_subscribers(subscribers):
-    with open(SUBSCRIBER_FILE, "w") as f:
-        json.dump(subscribers, f, indent=4)
-
-
-def _remove_subscriber(chat_id):
-    subscribers = load_subscribers()
-    chat_id = str(chat_id)
-    if chat_id in subscribers:
-        del subscribers[chat_id]
-        save_subscribers(subscribers)
-        return True
-    return False
-
