@@ -159,7 +159,7 @@ class CryptoReminderBot:
                     jobs = self.app.job_queue.get_jobs_by_name(f"daily_morning_reminder_{chat_id}")
                     for job in jobs:
                         job.schedule_removal()
-                    hour, minute = map(int, user['tiem'].split(":"))
+                    hour, minute = map(int, user['time'].split(":"))
                     tz_obj = pytz.timezone(tz)
                     self.app.job_queue.run_daily(
                         callback=self.morning_reminder,
