@@ -233,7 +233,7 @@ class CryptoReminderBot:
             if not user:
                 save_user(chat_id, "Asia/Shanghai", valid_coins, "08:00")
             else:
-                save_user(chat_id, user["timezone"], valid_coins, user["notification_time"])
+                save_user(chat_id, user["timezone"], valid_coins, user["time"])
             msg = f"✅ Your daily update coins have been set to: {', '.join(valid_coins).upper()}"
             if invalid_coins:
                 msg += f"\nInvalid coins ignored: {', '.join(invalid_coins)}"
